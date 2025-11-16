@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package api;
+
+option go_package = "github.com/TakuroBreath/vpn-agent/api/proto";
+
+import "google/protobuf/timestamp.proto";
+
+// ExternalAPIService это интерфейс внешнего API-сервиса,
+// с которым агент взаимодействует для регистрации и получения пользователей
+service APIService {
+  // RegisterServer регистрирует новый VPN-сервер
+  rpc RegisterServer(RegisterServerRequest) returns (RegisterServerResponse);
+  
+  // GetUsers получает список пользователей для данного сервера
+  rpc GetUsers(GetUsersRequest) returns (GetUsersResponse);
+  
+}
+
+// RegisterServerRequest запрос на регистрацию сервера
+message RegisterServerRequest {
+  string server_ip = 1;
+  string region = 2;
+  string public_key = 3;
+  string api_token = 4;
+}
+
+// RegisterServerResponse ответ на регистрацию
+message RegisterServerResponse {
+  bool success = 1;
+  string server_id = 2;
+}
+
+// GetUsersRequest запрос списка пользователей
+message GetUsersRequest {
+  string api_token = 1;
+  string server_id = 2;
+}
+
+// GetUsersResponse список пользователей
+message GetUsersResponse {
+  repeated User users = 1;
+  int32 total = 2;
+}
+
+// User информация о пользователе
+message User {
+  string email = 1;
+  string uuid = 2;
+  int32 level = 3;
+  int64 traffic_limit = 4;
+  google.protobuf.Timestamp expiry_date = 5;
+}

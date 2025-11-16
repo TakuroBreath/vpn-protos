@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package vpnagent;
+
+option go_package = "github.com/TakuroBreath/vpn-agent/api/proto";
+
+import "google/protobuf/timestamp.proto";
+
+// VPNAgentService предоставляет API для управления VPN-сервером
+service VPNAgentService {
+  // AddUser добавляет нового пользователя
+  rpc AddUser(UserInfo) returns (AddUserResponse);
+  
+  // RemoveUser удаляет пользователя
+  rpc RemoveUser(RemoveUserRequest) returns (RemoveUserResponse);
+  
+  // GetUser получает информацию о пользователе
+  rpc GetUser(GetUserRequest) returns (UserInfo);
+  
+  // GetUserStats получает статистику пользователя
+  rpc GetUserStats(GetUserStatsRequest) returns (UserStats);
+  
+  // GetConnectionURL генерирует URL для подключения клиента
+  rpc GetConnectionURL(GetConnectionURLRequest) returns (ConnectionURL);
+  
+  // ListUsers получает список пользователей с сервера
+  rpc ListUsers(ListUsersRequest) returns (UserList);
+  
+  // GetServerInfo получает информацию о сервере
+  rpc GetServerInfo(GetServerInfoRequest) returns (ServerInfo);
+
+  // HealthCheck проверяет, что сервер работает
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// ServerInfo содержит информацию о VPN-сервере
+message ServerInfo {
+  string server_ip = 1;
+  string region = 2;
+  string public_key = 3;  // Reality публичный ключ
+  int32 capacity = 4;
+  string protocol = 5;  // "vless-reality"
+  int32 port = 6;
+  repeated string server_names = 7;  // SNI для Reality
+  repeated string short_ids = 8;  // Reality short IDs
+}
+
+// RegisterResponse ответ на регистрацию сервера
+message RegisterResponse {
+  bool success = 1;
+  string message = 2;
+  string server_id = 3;
+}
+
+// GetAllUsersRequest запрос для получения всех пользователей
+message GetAllUsersRequest {
+  string api_token = 1;
+}
+
+// UserInfo содержит информацию о пользователе
+message UserInfo {
+  string email = 1;
+  string uuid = 2;
+  int32 level = 3;
+  int64 traffic_limit = 4;  // в байтах
+  google.protobuf.Timestamp expiry_date = 5;
+  int64 traffic_used = 6;  // в байтах
+}
+
+// UserList список пользователей
+message UserList {
+  repeated UserInfo users = 1;
+  int32 total = 2;
+}
+
+// AddUserResponse ответ на добавление пользователя
+message AddUserResponse {
+  bool success = 1;
+  string message = 2;
+  string connection_url = 3;
+}
+
+// RemoveUserRequest запрос на удаление пользователя
+message RemoveUserRequest {
+  string email = 1;
+}
+
+// RemoveUserResponse ответ на удаление пользователя
+message RemoveUserResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// GetUserRequest запрос информации о пользователе
+message GetUserRequest {
+  string email = 1;
+}
+
+// GetUserStatsRequest запрос статистики пользователя
+message GetUserStatsRequest {
+  string email = 1;
+}
+
+// UserStats статистика пользователя
+message UserStats {
+  string email = 1;
+  int64 uplink = 2;      // байты отправлено
+  int64 downlink = 3;    // байты получено
+  int64 total = 4;       // общий трафик
+  google.protobuf.Timestamp last_seen = 5;
+  bool is_online = 6;
+}
+
+// GetConnectionURLRequest запрос URL для подключения
+message GetConnectionURLRequest {
+  string email = 1;
+}
+
+// ConnectionURL URL для подключения клиента
+message ConnectionURL {
+  string url = 1;         // VLESS URL
+  string qr_code = 2;     // base64 QR code (опционально)
+  string email = 3;
+}
+
+// ListUsersRequest запрос списка пользователей
+message ListUsersRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+// GetServerInfoRequest запрос информации о сервере
+message GetServerInfoRequest {}
+
+// HealthCheckRequest запрос на проверку работоспособности сервера
+message HealthCheckRequest {}
+
+// HealthCheckResponse ответ на проверку работоспособности сервера
+message HealthCheckResponse {
+  bool success = 1;
+}
