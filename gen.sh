@@ -12,8 +12,8 @@ mkdir -p "${ROOT}/gen/vpn/v1"
 echo "Generating Go code for api.proto into gen/vpn/v1..."
 "${PROTOC_BIN}" \
   -I "${ROOT}" \
-  --go_out=paths=source_relative:"${ROOT}/gen" \
-  --go-grpc_out=paths=source_relative:"${ROOT}/gen" \
+  --go_out=paths=source_relative:"${ROOT}/gen/vpn/v1" \
+  --go-grpc_out=paths=source_relative:"${ROOT}/gen/vpn/v1" \
   "${ROOT}/api.proto"
 
 echo "Done."
