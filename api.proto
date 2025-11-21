@@ -1,53 +1,141 @@
 syntax = "proto3";
 
-package api;
+package vpn.v1;
 
-option go_package = "github.com/TakuroBreath/vpn-agent/api/proto";
+option go_package = "github.com/TakuroBreath/vpn-protos/gen/vpn/v1";
 
 import "google/protobuf/timestamp.proto";
 
-// ExternalAPIService это интерфейс внешнего API-сервиса,
-// с которым агент взаимодействует для регистрации и получения пользователей
-service APIService {
-  // RegisterServer регистрирует новый VPN-сервер
-  rpc RegisterServer(RegisterServerRequest) returns (RegisterServerResponse);
+// AgentControlService — единая точка входа на стороне API.
+// Агенты (VPN-серверы) инициируют подключение к этому сервису.
+service AgentControlService {
+  // Connect открывает долгоживущий двунаправленный поток.
+  // Агент шлет события (AgentEvent), API шлет команды (ServerCommand).
+  rpc Connect(stream AgentEvent) returns (stream ServerCommand);
+}
+
+// ========================================================================
+// СООБЩЕНИЯ ОТ АГЕНТА К API (Upstream)
+// ========================================================================
+
+message AgentEvent {
+  string event_id = 1;                // UUID события для логов
+  google.protobuf.Timestamp timestamp = 2;
+
+  oneof payload {
+    RegisterRequest register = 3;      // Рукопожатие (Handshake)
+    CommandResult command_result = 4;  // Ответ на команду
+    StatsReport stats = 5;             // Отчет о трафике
+    ErrorEvent error = 6;              // Ошибки агента/Xray
+  }
+}
+
+message RegisterRequest {
+  string api_token = 1;       // Токен авторизации сервера
+  string public_key = 2;      // Текущий Reality Public Key (из файла)
+  string agent_version = 3;   // Версия бинарника агента
+  string public_ip = 4;       // IP агента (для сверки в админке)
+}
+
+message CommandResult {
+  string command_id = 1;      // ID команды, на которую отвечаем
+  bool success = 2;
+  string message = 3;         // Детали ошибки, если есть
+}
+
+message StatsReport {
+  // Здоровье сервера
+  double cpu_usage_percent = 1;
+  uint64 ram_usage_bytes = 2;
+  uint32 active_connections = 3; // Активные TCP сессии
   
-  // GetUsers получает список пользователей для данного сервера
-  rpc GetUsers(GetUsersRequest) returns (GetUsersResponse);
+  // Трафик пользователей (Delta - байт с прошлого отчета)
+  // Ключ карты: UUID пользователя
+  map<string, TrafficDelta> user_traffic = 4;
+}
+
+message TrafficDelta {
+  int64 upload_bytes = 1;
+  int64 download_bytes = 2;
+}
+
+message ErrorEvent {
+  string code = 1;
+  string message = 2;
+  bool is_fatal = 3; // true = сервис не работает
+}
+
+// ========================================================================
+// СООБЩЕНИЯ ОТ API К АГЕНТУ (Downstream)
+// ========================================================================
+
+message ServerCommand {
+  string command_id = 1;      // UUID команды
+  google.protobuf.Timestamp created_at = 2;
   
+  oneof payload {
+    SyncState sync_state = 3;      // Полная синхронизация (Reconciliation)
+    UpdateUser update_user = 4;    // Добавить/Обновить юзера
+    RemoveUser remove_user = 5;    // Удалить юзера
+    UpdateConfig update_config = 6;// Обновить настройки Xray
+    HealthCheckRequest ping = 7;   // Пинг
+  }
 }
 
-// RegisterServerRequest запрос на регистрацию сервера
-message RegisterServerRequest {
-  string server_ip = 1;
-  string region = 2;
-  string public_key = 3;
-  string api_token = 4;
-}
-
-// RegisterServerResponse ответ на регистрацию
-message RegisterServerResponse {
-  bool success = 1;
-  string server_id = 2;
-}
-
-// GetUsersRequest запрос списка пользователей
-message GetUsersRequest {
-  string api_token = 1;
-  string server_id = 2;
-}
-
-// GetUsersResponse список пользователей
-message GetUsersResponse {
+// Полная перезапись состояния (используется при рестарте агента)
+message SyncState {
   repeated User users = 1;
-  int32 total = 2;
+  XrayConfig config = 2;
 }
 
-// User информация о пользователе
+message UpdateUser {
+  User user = 1;
+}
+
+message RemoveUser {
+  string uuid = 1;
+}
+
+message UpdateConfig {
+  XrayConfig config = 1;
+}
+
+message HealthCheckRequest {}
+
+// ========================================================================
+// МОДЕЛИ ДАННЫХ
+// ========================================================================
+
 message User {
-  string email = 1;
-  string uuid = 2;
-  int32 level = 3;
-  int64 traffic_limit = 4;
-  google.protobuf.Timestamp expiry_date = 5;
+  string uuid = 1;           // Единственный идентификатор пользователя
+  
+  // Лимит одновременных подключений (IP-адресов).
+  // Для Free: API ставит сюда 1 или 2.
+  // Для Paid: API ставит сюда 5.
+  uint32 max_connections = 2; 
+  
+  // Технический уровень обслуживания.
+  // 0 = Free (Агент может выставить меньший bufferSize для экономии RAM)
+  // 1 = Paid (Стандартный/Высокий bufferSize)
+  uint32 service_tier = 3;
+
+  // Срок действия.
+  // Агент использует это для локальной очистки, если API недоступно.
+  // Для Free: +1 день от выдачи.
+  // Для Paid: дата окончания подписки.
+  google.protobuf.Timestamp expiry_at = 4; 
+  
+  // Флаг блокировки (без удаления ключа)
+  bool is_blocked = 5;
+}
+
+message XrayConfig {
+  // Настройки Reality (Маскировка)
+  // API управляет тем, под какой сайт косит сервер
+  string dest_address = 1;          // "www.microsoft.com:443"
+  repeated string server_names = 2; // ["www.microsoft.com", "microsoft.com"]
+  repeated string short_ids = 3;    // ShortIDs
+  
+  // Системные настройки
+  bool enable_bbr = 4;              // Включить BBR
 }
