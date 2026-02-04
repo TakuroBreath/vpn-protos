@@ -32,6 +32,7 @@ type AgentEvent struct {
 	//	*AgentEvent_CommandResult
 	//	*AgentEvent_Stats
 	//	*AgentEvent_Error
+	//	*AgentEvent_StatsResponse
 	Payload       isAgentEvent_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -124,6 +125,15 @@ func (x *AgentEvent) GetError() *ErrorEvent {
 	return nil
 }
 
+func (x *AgentEvent) GetStatsResponse() *StatsQueryResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*AgentEvent_StatsResponse); ok {
+			return x.StatsResponse
+		}
+	}
+	return nil
+}
+
 type isAgentEvent_Payload interface {
 	isAgentEvent_Payload()
 }
@@ -144,6 +154,10 @@ type AgentEvent_Error struct {
 	Error *ErrorEvent `protobuf:"bytes,6,opt,name=error,proto3,oneof"` // Ошибки агента/Xray
 }
 
+type AgentEvent_StatsResponse struct {
+	StatsResponse *StatsQueryResponse `protobuf:"bytes,7,opt,name=stats_response,json=statsResponse,proto3,oneof"` // Ответ на запрос статистики
+}
+
 func (*AgentEvent_Register) isAgentEvent_Payload() {}
 
 func (*AgentEvent_CommandResult) isAgentEvent_Payload() {}
@@ -152,12 +166,15 @@ func (*AgentEvent_Stats) isAgentEvent_Payload() {}
 
 func (*AgentEvent_Error) isAgentEvent_Payload() {}
 
+func (*AgentEvent_StatsResponse) isAgentEvent_Payload() {}
+
 type RegisterRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ApiToken      string                 `protobuf:"bytes,1,opt,name=api_token,json=apiToken,proto3" json:"api_token,omitempty"`             // Токен авторизации сервера
 	PublicKey     string                 `protobuf:"bytes,2,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`          // Текущий Reality Public Key (из файла)
 	AgentVersion  string                 `protobuf:"bytes,3,opt,name=agent_version,json=agentVersion,proto3" json:"agent_version,omitempty"` // Версия бинарника агента
 	PublicIp      string                 `protobuf:"bytes,4,opt,name=public_ip,json=publicIp,proto3" json:"public_ip,omitempty"`             // IP агента (для сверки в админке)
+	Region        string                 `protobuf:"bytes,5,opt,name=region,proto3" json:"region,omitempty"`                                 // Регион сервера (из конфига агента)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -216,6 +233,13 @@ func (x *RegisterRequest) GetAgentVersion() string {
 func (x *RegisterRequest) GetPublicIp() string {
 	if x != nil {
 		return x.PublicIp
+	}
+	return ""
+}
+
+func (x *RegisterRequest) GetRegion() string {
+	if x != nil {
+		return x.Region
 	}
 	return ""
 }
@@ -474,6 +498,7 @@ type ServerCommand struct {
 	//	*ServerCommand_RemoveUser
 	//	*ServerCommand_UpdateConfig
 	//	*ServerCommand_Ping
+	//	*ServerCommand_StatsQuery
 	Payload       isServerCommand_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -575,6 +600,15 @@ func (x *ServerCommand) GetPing() *HealthCheckRequest {
 	return nil
 }
 
+func (x *ServerCommand) GetStatsQuery() *StatsQueryRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*ServerCommand_StatsQuery); ok {
+			return x.StatsQuery
+		}
+	}
+	return nil
+}
+
 type isServerCommand_Payload interface {
 	isServerCommand_Payload()
 }
@@ -599,6 +633,10 @@ type ServerCommand_Ping struct {
 	Ping *HealthCheckRequest `protobuf:"bytes,7,opt,name=ping,proto3,oneof"` // Пинг
 }
 
+type ServerCommand_StatsQuery struct {
+	StatsQuery *StatsQueryRequest `protobuf:"bytes,8,opt,name=stats_query,json=statsQuery,proto3,oneof"` // Запрос статистики пользователей
+}
+
 func (*ServerCommand_SyncState) isServerCommand_Payload() {}
 
 func (*ServerCommand_UpdateUser) isServerCommand_Payload() {}
@@ -608,6 +646,8 @@ func (*ServerCommand_RemoveUser) isServerCommand_Payload() {}
 func (*ServerCommand_UpdateConfig) isServerCommand_Payload() {}
 
 func (*ServerCommand_Ping) isServerCommand_Payload() {}
+
+func (*ServerCommand_StatsQuery) isServerCommand_Payload() {}
 
 // Полная перезапись состояния (используется при рестарте агента)
 type SyncState struct {
@@ -988,11 +1028,178 @@ func (x *XrayConfig) GetEnableBbr() bool {
 	return false
 }
 
+// Запрос статистики пользователей (API -> Agent)
+type StatsQueryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	QueryId       string                 `protobuf:"bytes,1,opt,name=query_id,json=queryId,proto3" json:"query_id,omitempty"`       // ID запроса для сопоставления ответа
+	UserUuids     []string               `protobuf:"bytes,2,rep,name=user_uuids,json=userUuids,proto3" json:"user_uuids,omitempty"` // UUID пользователей (пустой = все)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StatsQueryRequest) Reset() {
+	*x = StatsQueryRequest{}
+	mi := &file_api_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StatsQueryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StatsQueryRequest) ProtoMessage() {}
+
+func (x *StatsQueryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StatsQueryRequest.ProtoReflect.Descriptor instead.
+func (*StatsQueryRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *StatsQueryRequest) GetQueryId() string {
+	if x != nil {
+		return x.QueryId
+	}
+	return ""
+}
+
+func (x *StatsQueryRequest) GetUserUuids() []string {
+	if x != nil {
+		return x.UserUuids
+	}
+	return nil
+}
+
+// Ответ со статистикой пользователей (Agent -> API)
+type StatsQueryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	QueryId       string                 `protobuf:"bytes,1,opt,name=query_id,json=queryId,proto3" json:"query_id,omitempty"`                                                        // ID запроса
+	Users         map[string]*UserStats  `protobuf:"bytes,2,rep,name=users,proto3" json:"users,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Статистика по пользователям
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StatsQueryResponse) Reset() {
+	*x = StatsQueryResponse{}
+	mi := &file_api_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StatsQueryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StatsQueryResponse) ProtoMessage() {}
+
+func (x *StatsQueryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StatsQueryResponse.ProtoReflect.Descriptor instead.
+func (*StatsQueryResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *StatsQueryResponse) GetQueryId() string {
+	if x != nil {
+		return x.QueryId
+	}
+	return ""
+}
+
+func (x *StatsQueryResponse) GetUsers() map[string]*UserStats {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
+// Статистика одного пользователя
+type UserStats struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UplinkBytes   int64                  `protobuf:"varint,1,opt,name=uplink_bytes,json=uplinkBytes,proto3" json:"uplink_bytes,omitempty"`       // Байт загружено
+	DownlinkBytes int64                  `protobuf:"varint,2,opt,name=downlink_bytes,json=downlinkBytes,proto3" json:"downlink_bytes,omitempty"` // Байт скачано
+	Online        bool                   `protobuf:"varint,3,opt,name=online,proto3" json:"online,omitempty"`                                    // Онлайн (есть активность)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UserStats) Reset() {
+	*x = UserStats{}
+	mi := &file_api_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserStats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserStats) ProtoMessage() {}
+
+func (x *UserStats) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserStats.ProtoReflect.Descriptor instead.
+func (*UserStats) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *UserStats) GetUplinkBytes() int64 {
+	if x != nil {
+		return x.UplinkBytes
+	}
+	return 0
+}
+
+func (x *UserStats) GetDownlinkBytes() int64 {
+	if x != nil {
+		return x.DownlinkBytes
+	}
+	return 0
+}
+
+func (x *UserStats) GetOnline() bool {
+	if x != nil {
+		return x.Online
+	}
+	return false
+}
+
 var File_api_proto protoreflect.FileDescriptor
 
 const file_api_proto_rawDesc = "" +
 	"\n" +
-	"\tapi.proto\x12\x06vpn.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbc\x02\n" +
+	"\tapi.proto\x12\x06vpn.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x81\x03\n" +
 	"\n" +
 	"AgentEvent\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\tR\aeventId\x128\n" +
@@ -1000,14 +1207,16 @@ const file_api_proto_rawDesc = "" +
 	"\bregister\x18\x03 \x01(\v2\x17.vpn.v1.RegisterRequestH\x00R\bregister\x12>\n" +
 	"\x0ecommand_result\x18\x04 \x01(\v2\x15.vpn.v1.CommandResultH\x00R\rcommandResult\x12+\n" +
 	"\x05stats\x18\x05 \x01(\v2\x13.vpn.v1.StatsReportH\x00R\x05stats\x12*\n" +
-	"\x05error\x18\x06 \x01(\v2\x12.vpn.v1.ErrorEventH\x00R\x05errorB\t\n" +
-	"\apayload\"\x8f\x01\n" +
+	"\x05error\x18\x06 \x01(\v2\x12.vpn.v1.ErrorEventH\x00R\x05error\x12C\n" +
+	"\x0estats_response\x18\a \x01(\v2\x1a.vpn.v1.StatsQueryResponseH\x00R\rstatsResponseB\t\n" +
+	"\apayload\"\xa7\x01\n" +
 	"\x0fRegisterRequest\x12\x1b\n" +
 	"\tapi_token\x18\x01 \x01(\tR\bapiToken\x12\x1d\n" +
 	"\n" +
 	"public_key\x18\x02 \x01(\tR\tpublicKey\x12#\n" +
 	"\ragent_version\x18\x03 \x01(\tR\fagentVersion\x12\x1b\n" +
-	"\tpublic_ip\x18\x04 \x01(\tR\bpublicIp\"b\n" +
+	"\tpublic_ip\x18\x04 \x01(\tR\bpublicIp\x12\x16\n" +
+	"\x06region\x18\x05 \x01(\tR\x06region\"b\n" +
 	"\rCommandResult\x12\x1d\n" +
 	"\n" +
 	"command_id\x18\x01 \x01(\tR\tcommandId\x12\x18\n" +
@@ -1028,7 +1237,7 @@ const file_api_proto_rawDesc = "" +
 	"ErrorEvent\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x19\n" +
-	"\bis_fatal\x18\x03 \x01(\bR\aisFatal\"\x85\x03\n" +
+	"\bis_fatal\x18\x03 \x01(\bR\aisFatal\"\xc3\x03\n" +
 	"\rServerCommand\x12\x1d\n" +
 	"\n" +
 	"command_id\x18\x01 \x01(\tR\tcommandId\x129\n" +
@@ -1041,7 +1250,9 @@ const file_api_proto_rawDesc = "" +
 	"\vremove_user\x18\x05 \x01(\v2\x12.vpn.v1.RemoveUserH\x00R\n" +
 	"removeUser\x12;\n" +
 	"\rupdate_config\x18\x06 \x01(\v2\x14.vpn.v1.UpdateConfigH\x00R\fupdateConfig\x120\n" +
-	"\x04ping\x18\a \x01(\v2\x1a.vpn.v1.HealthCheckRequestH\x00R\x04pingB\t\n" +
+	"\x04ping\x18\a \x01(\v2\x1a.vpn.v1.HealthCheckRequestH\x00R\x04ping\x12<\n" +
+	"\vstats_query\x18\b \x01(\v2\x19.vpn.v1.StatsQueryRequestH\x00R\n" +
+	"statsQueryB\t\n" +
 	"\apayload\"[\n" +
 	"\tSyncState\x12\"\n" +
 	"\x05users\x18\x01 \x03(\v2\f.vpn.v1.UserR\x05users\x12*\n" +
@@ -1068,7 +1279,22 @@ const file_api_proto_rawDesc = "" +
 	"\fserver_names\x18\x02 \x03(\tR\vserverNames\x12\x1b\n" +
 	"\tshort_ids\x18\x03 \x03(\tR\bshortIds\x12\x1d\n" +
 	"\n" +
-	"enable_bbr\x18\x04 \x01(\bR\tenableBbr2O\n" +
+	"enable_bbr\x18\x04 \x01(\bR\tenableBbr\"M\n" +
+	"\x11StatsQueryRequest\x12\x19\n" +
+	"\bquery_id\x18\x01 \x01(\tR\aqueryId\x12\x1d\n" +
+	"\n" +
+	"user_uuids\x18\x02 \x03(\tR\tuserUuids\"\xb9\x01\n" +
+	"\x12StatsQueryResponse\x12\x19\n" +
+	"\bquery_id\x18\x01 \x01(\tR\aqueryId\x12;\n" +
+	"\x05users\x18\x02 \x03(\v2%.vpn.v1.StatsQueryResponse.UsersEntryR\x05users\x1aK\n" +
+	"\n" +
+	"UsersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12'\n" +
+	"\x05value\x18\x02 \x01(\v2\x11.vpn.v1.UserStatsR\x05value:\x028\x01\"m\n" +
+	"\tUserStats\x12!\n" +
+	"\fuplink_bytes\x18\x01 \x01(\x03R\vuplinkBytes\x12%\n" +
+	"\x0edownlink_bytes\x18\x02 \x01(\x03R\rdownlinkBytes\x12\x16\n" +
+	"\x06online\x18\x03 \x01(\bR\x06online2O\n" +
 	"\x13AgentControlService\x128\n" +
 	"\aConnect\x12\x12.vpn.v1.AgentEvent\x1a\x15.vpn.v1.ServerCommand(\x010\x01B/Z-github.com/TakuroBreath/vpn-protos/gen/vpn/v1b\x06proto3"
 
@@ -1084,7 +1310,7 @@ func file_api_proto_rawDescGZIP() []byte {
 	return file_api_proto_rawDescData
 }
 
-var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_api_proto_goTypes = []any{
 	(*AgentEvent)(nil),            // 0: vpn.v1.AgentEvent
 	(*RegisterRequest)(nil),       // 1: vpn.v1.RegisterRequest
@@ -1100,35 +1326,43 @@ var file_api_proto_goTypes = []any{
 	(*HealthCheckRequest)(nil),    // 11: vpn.v1.HealthCheckRequest
 	(*User)(nil),                  // 12: vpn.v1.User
 	(*XrayConfig)(nil),            // 13: vpn.v1.XrayConfig
-	nil,                           // 14: vpn.v1.StatsReport.UserTrafficEntry
-	(*timestamppb.Timestamp)(nil), // 15: google.protobuf.Timestamp
+	(*StatsQueryRequest)(nil),     // 14: vpn.v1.StatsQueryRequest
+	(*StatsQueryResponse)(nil),    // 15: vpn.v1.StatsQueryResponse
+	(*UserStats)(nil),             // 16: vpn.v1.UserStats
+	nil,                           // 17: vpn.v1.StatsReport.UserTrafficEntry
+	nil,                           // 18: vpn.v1.StatsQueryResponse.UsersEntry
+	(*timestamppb.Timestamp)(nil), // 19: google.protobuf.Timestamp
 }
 var file_api_proto_depIdxs = []int32{
-	15, // 0: vpn.v1.AgentEvent.timestamp:type_name -> google.protobuf.Timestamp
+	19, // 0: vpn.v1.AgentEvent.timestamp:type_name -> google.protobuf.Timestamp
 	1,  // 1: vpn.v1.AgentEvent.register:type_name -> vpn.v1.RegisterRequest
 	2,  // 2: vpn.v1.AgentEvent.command_result:type_name -> vpn.v1.CommandResult
 	3,  // 3: vpn.v1.AgentEvent.stats:type_name -> vpn.v1.StatsReport
 	5,  // 4: vpn.v1.AgentEvent.error:type_name -> vpn.v1.ErrorEvent
-	14, // 5: vpn.v1.StatsReport.user_traffic:type_name -> vpn.v1.StatsReport.UserTrafficEntry
-	15, // 6: vpn.v1.ServerCommand.created_at:type_name -> google.protobuf.Timestamp
-	7,  // 7: vpn.v1.ServerCommand.sync_state:type_name -> vpn.v1.SyncState
-	8,  // 8: vpn.v1.ServerCommand.update_user:type_name -> vpn.v1.UpdateUser
-	9,  // 9: vpn.v1.ServerCommand.remove_user:type_name -> vpn.v1.RemoveUser
-	10, // 10: vpn.v1.ServerCommand.update_config:type_name -> vpn.v1.UpdateConfig
-	11, // 11: vpn.v1.ServerCommand.ping:type_name -> vpn.v1.HealthCheckRequest
-	12, // 12: vpn.v1.SyncState.users:type_name -> vpn.v1.User
-	13, // 13: vpn.v1.SyncState.config:type_name -> vpn.v1.XrayConfig
-	12, // 14: vpn.v1.UpdateUser.user:type_name -> vpn.v1.User
-	13, // 15: vpn.v1.UpdateConfig.config:type_name -> vpn.v1.XrayConfig
-	15, // 16: vpn.v1.User.expiry_at:type_name -> google.protobuf.Timestamp
-	4,  // 17: vpn.v1.StatsReport.UserTrafficEntry.value:type_name -> vpn.v1.TrafficDelta
-	0,  // 18: vpn.v1.AgentControlService.Connect:input_type -> vpn.v1.AgentEvent
-	6,  // 19: vpn.v1.AgentControlService.Connect:output_type -> vpn.v1.ServerCommand
-	19, // [19:20] is the sub-list for method output_type
-	18, // [18:19] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	15, // 5: vpn.v1.AgentEvent.stats_response:type_name -> vpn.v1.StatsQueryResponse
+	17, // 6: vpn.v1.StatsReport.user_traffic:type_name -> vpn.v1.StatsReport.UserTrafficEntry
+	19, // 7: vpn.v1.ServerCommand.created_at:type_name -> google.protobuf.Timestamp
+	7,  // 8: vpn.v1.ServerCommand.sync_state:type_name -> vpn.v1.SyncState
+	8,  // 9: vpn.v1.ServerCommand.update_user:type_name -> vpn.v1.UpdateUser
+	9,  // 10: vpn.v1.ServerCommand.remove_user:type_name -> vpn.v1.RemoveUser
+	10, // 11: vpn.v1.ServerCommand.update_config:type_name -> vpn.v1.UpdateConfig
+	11, // 12: vpn.v1.ServerCommand.ping:type_name -> vpn.v1.HealthCheckRequest
+	14, // 13: vpn.v1.ServerCommand.stats_query:type_name -> vpn.v1.StatsQueryRequest
+	12, // 14: vpn.v1.SyncState.users:type_name -> vpn.v1.User
+	13, // 15: vpn.v1.SyncState.config:type_name -> vpn.v1.XrayConfig
+	12, // 16: vpn.v1.UpdateUser.user:type_name -> vpn.v1.User
+	13, // 17: vpn.v1.UpdateConfig.config:type_name -> vpn.v1.XrayConfig
+	19, // 18: vpn.v1.User.expiry_at:type_name -> google.protobuf.Timestamp
+	18, // 19: vpn.v1.StatsQueryResponse.users:type_name -> vpn.v1.StatsQueryResponse.UsersEntry
+	4,  // 20: vpn.v1.StatsReport.UserTrafficEntry.value:type_name -> vpn.v1.TrafficDelta
+	16, // 21: vpn.v1.StatsQueryResponse.UsersEntry.value:type_name -> vpn.v1.UserStats
+	0,  // 22: vpn.v1.AgentControlService.Connect:input_type -> vpn.v1.AgentEvent
+	6,  // 23: vpn.v1.AgentControlService.Connect:output_type -> vpn.v1.ServerCommand
+	23, // [23:24] is the sub-list for method output_type
+	22, // [22:23] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_init() }
@@ -1141,6 +1375,7 @@ func file_api_proto_init() {
 		(*AgentEvent_CommandResult)(nil),
 		(*AgentEvent_Stats)(nil),
 		(*AgentEvent_Error)(nil),
+		(*AgentEvent_StatsResponse)(nil),
 	}
 	file_api_proto_msgTypes[6].OneofWrappers = []any{
 		(*ServerCommand_SyncState)(nil),
@@ -1148,6 +1383,7 @@ func file_api_proto_init() {
 		(*ServerCommand_RemoveUser)(nil),
 		(*ServerCommand_UpdateConfig)(nil),
 		(*ServerCommand_Ping)(nil),
+		(*ServerCommand_StatsQuery)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1155,7 +1391,7 @@ func file_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_rawDesc), len(file_api_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -27,6 +27,7 @@ message AgentEvent {
     CommandResult command_result = 4;  // Ответ на команду
     StatsReport stats = 5;             // Отчет о трафике
     ErrorEvent error = 6;              // Ошибки агента/Xray
+    StatsQueryResponse stats_response = 7; // Ответ на запрос статистики
   }
 }
 
@@ -35,6 +36,7 @@ message RegisterRequest {
   string public_key = 2;      // Текущий Reality Public Key (из файла)
   string agent_version = 3;   // Версия бинарника агента
   string public_ip = 4;       // IP агента (для сверки в админке)
+  string region = 5;          // Регион сервера (из конфига агента)
 }
 
 message CommandResult {
@@ -72,13 +74,14 @@ message ErrorEvent {
 message ServerCommand {
   string command_id = 1;      // UUID команды
   google.protobuf.Timestamp created_at = 2;
-  
+
   oneof payload {
     SyncState sync_state = 3;      // Полная синхронизация (Reconciliation)
     UpdateUser update_user = 4;    // Добавить/Обновить юзера
     RemoveUser remove_user = 5;    // Удалить юзера
     UpdateConfig update_config = 6;// Обновить настройки Xray
     HealthCheckRequest ping = 7;   // Пинг
+    StatsQueryRequest stats_query = 8; // Запрос статистики пользователей
   }
 }
 
@@ -135,7 +138,30 @@ message XrayConfig {
   string dest_address = 1;          // "www.microsoft.com:443"
   repeated string server_names = 2; // ["www.microsoft.com", "microsoft.com"]
   repeated string short_ids = 3;    // ShortIDs
-  
+
   // Системные настройки
   bool enable_bbr = 4;              // Включить BBR
+}
+
+// ========================================================================
+// ЗАПРОС/ОТВЕТ СТАТИСТИКИ В РЕАЛЬНОМ ВРЕМЕНИ
+// ========================================================================
+
+// Запрос статистики пользователей (API -> Agent)
+message StatsQueryRequest {
+  string query_id = 1;              // ID запроса для сопоставления ответа
+  repeated string user_uuids = 2;   // UUID пользователей (пустой = все)
+}
+
+// Ответ со статистикой пользователей (Agent -> API)
+message StatsQueryResponse {
+  string query_id = 1;              // ID запроса
+  map<string, UserStats> users = 2; // Статистика по пользователям
+}
+
+// Статистика одного пользователя
+message UserStats {
+  int64 uplink_bytes = 1;           // Байт загружено
+  int64 downlink_bytes = 2;         // Байт скачано
+  bool online = 3;                  // Онлайн (есть активность)
 }
