@@ -35,6 +35,7 @@ message RegisterRequest {
   string public_key = 2;      // Текущий Reality Public Key (из файла)
   string agent_version = 3;   // Версия бинарника агента
   string public_ip = 4;       // IP агента (для сверки в админке)
+  string region = 5;          // Регион/название сервера (e.g. "🇳🇱 DuckSurf Netherlands")
 }
 
 message CommandResult {
